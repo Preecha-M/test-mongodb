@@ -1,64 +1,64 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const app = express();
 const bodyParser = require('body-parser');
+const mysql = require('mysql2');
 const cors = require('cors');
 
-// Environment Variables for MongoDB connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://preechasr3008:2Jex4nQ6sOnClnRj@cluster0.s3xsz.mongodb.net/';
-
-// Connect to MongoDB
-mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log('Connected to MongoDB'))
-    .catch((err) => console.error('MongoDB connection error:', err));
-
-// Define Post and Reply Schemas
-const postSchema = new mongoose.Schema({
-    content: String,
-    createdAt: { type: Date, default: Date.now },
+// ตั้งค่าการเชื่อมต่อ MySQL
+const db = mysql.createConnection({
+    host: 'sql12.freesqldatabase.com', // เปลี่ยนเป็นค่าของ Railway เมื่อ Deploy
+    user: 'sql12753913',
+    password: 'y3HfyqwGcb',
+    database: 'sql12753913'
 });
 
-const replySchema = new mongoose.Schema({
-    postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
-    content: String,
-    createdAt: { type: Date, default: Date.now },
+// เชื่อมต่อ Database
+db.connect((err) => {
+    if (err) throw err;
+    console.log('Connected to MySQL');
 });
 
-const Post = mongoose.model('Post', postSchema);
-const Reply = mongoose.model('Reply', replySchema);
-
-// Initialize Express
-const app = express();
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
-// API Routes
-// Get all posts
-app.get('/posts', async (req, res) => {
-    const posts = await Post.find().sort({ createdAt: -1 });
-    res.json(posts);
-});
-
-// Create a new post
-app.post('/posts', async (req, res) => {
-    const newPost = new Post({ content: req.body.content });
-    await newPost.save();
-    res.json(newPost);
-});
-
-// Create a reply
-app.post('/replies', async (req, res) => {
-    const newReply = new Reply({
-        postId: req.body.postId,
-        content: req.body.content,
+// ดึงโพสต์ทั้งหมด
+app.get('/posts', (req, res) => {
+    const query = 'SELECT * FROM posts';
+    db.query(query, (err, results) => {
+        if (err) throw err;
+        res.json(results);
     });
-    await newReply.save();
-    res.json(newReply);
 });
 
-// Get replies for a specific post
-app.get('/replies/:postId', async (req, res) => {
-    const replies = await Reply.find({ postId: req.params.postId }).sort({ createdAt: -1 });
-    res.json(replies);
+// สร้างโพสต์ใหม่
+app.post('/posts', (req, res) => {
+    const { content } = req.body;
+    const query = 'INSERT INTO posts (content) VALUES (?)';
+    db.query(query, [content], (err, result) => {
+        if (err) throw err;
+        res.json({ id: result.insertId, content });
+    });
+});
+
+// สร้างการตอบกลับ
+app.post('/replies', (req, res) => {
+    const { postId, content } = req.body;
+    const query = 'INSERT INTO replies (post_id, content) VALUES (?, ?)';
+    db.query(query, [postId, content], (err, result) => {
+        if (err) throw err;
+        res.json({ id: result.insertId, postId, content });
+    });
+});
+
+// ดึงการตอบกลับทั้งหมด
+app.get('/replies/:postId', (req, res) => {
+    const { postId } = req.params;
+    const query = 'SELECT * FROM replies WHERE post_id = ?';
+    db.query(query, [postId], (err, results) => {
+        if (err) throw err;
+        res.json(results);
+    });
 });
 
 // Start Server
