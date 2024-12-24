@@ -1,0 +1,166 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post and Reply System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .create-post {
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .post {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f1f1f1;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .post .reply {
+            margin-top: 10px;
+            padding-left: 20px;
+            border-left: 2px solid #ccc;
+        }
+
+        .reply textarea {
+            margin-top: 10px;
+        }
+
+        .reply button {
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="create-post">
+            <h2>Create a Post</h2>
+            <textarea id="postContent" rows="3" placeholder="Write something..."></textarea>
+            <button onclick="createPost()">Post</button>
+        </div>
+
+        <div id="postsContainer">
+            <!-- Posts will be added here dynamically -->
+        </div>
+    </div>
+
+    <script>
+        const apiUrl = 'https://your-railway-app-url.com'; // URL ที่ได้จาก Railway
+    
+        async function fetchPosts() {
+            const response = await fetch(`${apiUrl}/posts`);
+            const posts = await response.json();
+    
+            const postsContainer = document.getElementById('postsContainer');
+            postsContainer.innerHTML = '';
+    
+            for (const post of posts) {
+                const postDiv = document.createElement('div');
+                postDiv.className = 'post';
+                postDiv.innerHTML = `
+                    <p>${post.content}</p>
+                    <button onclick="showReplyBox(${post.id})">Reply</button>
+                    <div id="replies-${post.id}" class="replies"></div>
+                `;
+                postsContainer.appendChild(postDiv);
+    
+                fetchReplies(post.id);
+            }
+        }
+    
+        async function createPost() {
+            const content = document.getElementById('postContent').value;
+            await fetch(`${apiUrl}/posts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            document.getElementById('postContent').value = '';
+            fetchPosts();
+        }
+    
+        async function fetchReplies(postId) {
+            const response = await fetch(`${apiUrl}/replies/${postId}`);
+            const replies = await response.json();
+    
+            const repliesContainer = document.getElementById(`replies-${postId}`);
+            repliesContainer.innerHTML = '';
+    
+            for (const reply of replies) {
+                const replyDiv = document.createElement('div');
+                replyDiv.className = 'reply';
+                replyDiv.innerHTML = `<p>${reply.content}</p>`;
+                repliesContainer.appendChild(replyDiv);
+            }
+        }
+    
+        async function submitReply(postId) {
+            const replyTextarea = document.querySelector(`#replies-${postId} textarea`);
+            const content = replyTextarea.value;
+    
+            await fetch(`${apiUrl}/replies`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ postId, content })
+            });
+            replyTextarea.value = '';
+            fetchReplies(postId);
+        }
+    
+        function showReplyBox(postId) {
+            const repliesContainer = document.getElementById(`replies-${postId}`);
+            if (!repliesContainer.querySelector('textarea')) {
+                const replyBox = document.createElement('div');
+                replyBox.innerHTML = `
+                    <textarea rows="2" placeholder="Write your reply..."></textarea>
+                    <button onclick="submitReply(${postId})">Submit Reply</button>
+                `;
+                repliesContainer.appendChild(replyBox);
+            }
+        }
+    
+        fetchPosts();
+    </script>
+    
+</body>
+</html>
